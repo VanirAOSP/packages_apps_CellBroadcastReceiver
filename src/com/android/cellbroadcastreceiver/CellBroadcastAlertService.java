@@ -53,14 +53,15 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.PhoneConstants;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Locale;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 
 import android.preference.PreferenceManager;
 import android.content.SharedPreferences;
 import static android.text.format.DateUtils.DAY_IN_MILLIS;
-
 
 /**
  * This service manages the display and animation of broadcast messages.
@@ -212,12 +213,8 @@ public class CellBroadcastAlertService extends Service {
     /** Maximum number of message IDs to save before removing the oldest message ID. */
     private static final int MAX_MESSAGE_ID_SIZE = 1024;
 
-    /** Linked hash map of the message identities for duplication detection purposes. The key is the
-     * the collection of different message keys used for duplication detection, and the value
-     * is the timestamp of message arriving time. Some carriers may require shorter expiration time.
-     */
-    private static final LinkedHashMap<MessageServiceCategoryAndScope, Long> sMessagesMap =
-            new LinkedHashMap<>();
+    /** Index of message ID to replace with new message ID when max message IDs are received. */
+    private static int sCmasIdListIndex = 0;
     /** List of message IDs received for recent 12 hours. */
     private static final ArrayList<MessageServiceCategoryAndScope> s12HIdList =
         new ArrayList<MessageServiceCategoryAndScope>(8);
@@ -354,6 +351,13 @@ public class CellBroadcastAlertService extends Service {
         }
     }
 
+    /** Linked hash map of the message identities for duplication detection purposes. The key is the
+     * the collection of different message keys used for duplication detection, and the value
+     * is the timestamp of message arriving time. Some carriers may require shorter expiration time.
+     */
+    private static final LinkedHashMap<MessageServiceCategoryAndScope, Long> sMessagesMap =
+            new LinkedHashMap<>();
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent.getAction();
@@ -470,17 +474,15 @@ public class CellBroadcastAlertService extends Service {
                     carrierConfig.getBoolean("carrier_disable_etws_cmas_dup_detection");
             }
         }
-
         if (mUseDupDetection && !carrierDisableDupDetection) {
             // Check for duplicate message IDs according to CMAS carrier requirements. Message IDs
-            // are stored in volatile memory. If the maximum of 65535 messages is reached, the
+            // are stored in volatile memory. If the maximum of 1024 messages is reached, the
             // message ID of the oldest message is deleted from the list.
             MessageServiceCategoryAndScope newCmasId = new MessageServiceCategoryAndScope(
                     message.getServiceCategory(), message.getSerialNumber(), message.getLocation(),
-                    hashCode, isEtwsPrimary, message.getEtwsWarningInfo());
+                    hashCode, isEtwsPrimary);
 
-            Log.v(TAG,"newCmasId:" + newCmasId + " hash: " + newCmasId.hashCode()
-                    + "body hash:" + hashCode);
+            Log.d(TAG, "message ID = " + newCmasId);
 
             long nowTime = SystemClock.elapsedRealtime();
             // Check if the identical message arrives again
