@@ -53,9 +53,7 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.telephony.PhoneConstants;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Locale;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 
@@ -213,6 +211,13 @@ public class CellBroadcastAlertService extends Service {
     /** Maximum number of message IDs to save before removing the oldest message ID. */
     private static final int MAX_MESSAGE_ID_SIZE = 1024;
 
+    /** Linked hash map of the message identities for duplication detection purposes. The key is the
+     * the collection of different message keys used for duplication detection, and the value
+     * is the timestamp of message arriving time. Some carriers may require shorter expiration time.
+     */
+    private static final LinkedHashMap<MessageServiceCategoryAndScope, Long> sMessagesMap =
+            new LinkedHashMap<>();
+
     /** Index of message ID to replace with new message ID when max message IDs are received. */
     private static int sCmasIdListIndex = 0;
     /** List of message IDs received for recent 12 hours. */
@@ -350,13 +355,6 @@ public class CellBroadcastAlertService extends Service {
             return -1;
         }
     }
-
-    /** Linked hash map of the message identities for duplication detection purposes. The key is the
-     * the collection of different message keys used for duplication detection, and the value
-     * is the timestamp of message arriving time. Some carriers may require shorter expiration time.
-     */
-    private static final LinkedHashMap<MessageServiceCategoryAndScope, Long> sMessagesMap =
-            new LinkedHashMap<>();
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
